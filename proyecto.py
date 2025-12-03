@@ -81,7 +81,7 @@ def style_fig(fig):
     )
     return fig
 
-DB_URI = "mysql+pymysql://root@localhost:3306/proyecto"
+DB_URI = "mysql+pymysql://sql5809892:6qamRICnU7@sql5.freesqldatabase.com:3306/sql5809892"
 
 
 def get_engine(db_uri: str = DB_URI):
