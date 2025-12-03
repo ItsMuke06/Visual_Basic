@@ -3,43 +3,28 @@ import pandas as pd
 import plotly.express as px
 from sqlalchemy import create_engine, text
 
-# ============================================================
-# CONFIGURACIÓN GENERAL
-# ============================================================
 st.set_page_config(page_title="Hotel – Dashboard con menú", layout="wide")
 
-# ------------------------------------------------------------
-# ESTILO BEIGE / CAFÉ + LETRAS
-# ------------------------------------------------------------
 st.markdown("""
 <style>
-/* Fondo general beige café */
 .stApp {
     background-color: #e8d9c4 !important;
 }
-
-/* Contenido principal: texto oscuro */
 .block-container {
     color: #2b1a0f !important;
 }
 h1, h2, h3, h4, h5, h6, p, span, label {
     color: #2b1a0f !important;
 }
-
-/* Sidebar café con letras blancas */
 [data-testid="stSidebar"] {
     background-color: #7b4a26 !important;
 }
 [data-testid="stSidebar"] * {
     color: #ffffff !important;
 }
-
-/* Barra superior (deploy / rerun) con letras blancas */
 [data-testid="stHeader"] * {
     color: #ffffff !important;
 }
-
-/* Métricas – tarjetas café, todo en blanco */
 [data-testid="stMetric"] {
     background: linear-gradient(135deg, #5c371c, #7b4a26);
     padding: 12px;
@@ -49,8 +34,6 @@ h1, h2, h3, h4, h5, h6, p, span, label {
 [data-testid="stMetric"] * {
     color: #ffffff !important;
 }
-
-/* Expanders – “botoncitos” */
 details {
     background-color: #d1b792 !important;
     border-radius: 8px;
@@ -61,21 +44,17 @@ summary {
     font-weight: 700 !important;
     color: #2b1a0f !important;
 }
-
-/* Tablas */
 [data-testid="stDataFrame"] {
     color: #2b1a0f !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# Paleta madera para TODOS los gráficos
 WOOD_COLORS = ["#4b2e1a", "#6d4c3d", "#8d6e63", "#a1887f", "#3e2723"]
 px.defaults.color_discrete_sequence = WOOD_COLORS
 
 
 def style_fig(fig):
-    """Aplica fondo beige–café y letras oscuras a los gráficos."""
     fig.update_layout(
         paper_bgcolor="#c7ab85",
         plot_bgcolor="#e1c39b",
@@ -87,10 +66,8 @@ def style_fig(fig):
     return fig
 
 
-# ============================================================
-# CONEXIÓN A BD Y CARGA DE DATOS
-# ============================================================
-DB_URI = "mysql+pymysql://root@localhost:3306/proyecto"
+DEFAULT_DB_URI = "mysql+pymysql://sql5809370:ljmKmE64CM@sql5.freesqldatabase.com:3306/sql5809370"
+DB_URI = DEFAULT_DB_URI
 
 
 def get_engine(db_uri: str = DB_URI):
@@ -183,7 +160,6 @@ def load_data(db_uri: str):
     """
     df_local = pd.read_sql(query, engine_local)
 
-    # Conversión de fechas
     df_local["fecha_reserva"] = pd.to_datetime(df_local["fecha_reserva"])
     df_local["fecha_vencimiento"] = pd.to_datetime(df_local["fecha_vencimiento"])
     df_local["check_in"] = pd.to_datetime(df_local["check_in"])
@@ -192,7 +168,6 @@ def load_data(db_uri: str):
     df_local["fecha_detalle_pago"] = pd.to_datetime(df_local["fecha_detalle_pago"])
     df_local["hora"] = pd.to_datetime(df_local["hora"])
 
-    # Montos numéricos
     df_local["monto_total"] = df_local["monto_total"].astype(float)
     df_local["monto_pago"] = df_local["monto_pago"].astype(float)
     df_local["monto_detalle_pago"] = df_local["monto_detalle_pago"].astype(float)
@@ -201,11 +176,9 @@ def load_data(db_uri: str):
     df_local["precio_servicio_reserva"] = df_local["precio_servicio_reserva"].astype(float)
     df_local["subtotal_servicio"] = df_local["subtotal_servicio"].astype(float)
 
-    # Columnas derivadas
     df_local["mes_anio"] = df_local["fecha_reserva"].dt.to_period("M").astype(str)
     df_local["noches"] = (df_local["check_out"] - df_local["check_in"]).dt.days
 
-    # Textos / nulos
     df_local["localizacion_reserva"] = df_local["localizacion_reserva"].fillna("Sin localización")
     df_local["descripcion_tipo_habitacion"] = df_local["descripcion_tipo_habitacion"].fillna("Sin descripción")
     df_local["nombre_servicio_especial"] = df_local["nombre_servicio_especial"].fillna("Sin servicio")
@@ -221,9 +194,6 @@ if df_base.empty:
     st.warning("No se pudo cargar información desde la base de datos.")
     st.stop()
 
-# ============================================================
-# MENÚ PRINCIPAL EN EL SIDEBAR
-# ============================================================
 st.sidebar.title("Menú del hotel")
 
 pagina = st.sidebar.radio(
@@ -236,9 +206,6 @@ pagina = st.sidebar.radio(
     )
 )
 
-# ============================================================
-# 1) DASHBOARD GENERAL
-# ============================================================
 if pagina == "Dashboard general":
     df = df_base.copy()
 
@@ -282,7 +249,6 @@ if pagina == "Dashboard general":
         st.warning("No se encontraron resultados con los filtros seleccionados.")
         st.stop()
 
-    # Indicadores
     col1, col2, col3, col4 = st.columns(4)
 
     total_reservas = df["id_reserva"].nunique()
@@ -297,7 +263,6 @@ if pagina == "Dashboard general":
 
     st.markdown("---")
 
-    # Tabla en botoncito
     st.subheader("Tabla de reservas filtradas")
     with st.expander("Ver tabla de reservas filtradas"):
         st.dataframe(df, use_container_width=True)
@@ -305,7 +270,6 @@ if pagina == "Dashboard general":
     st.markdown("---")
     st.subheader("Visualizaciones")
 
-    # Gráfico 1
     with st.expander("📊 Monto total de reservas por fecha"):
         df_ts = (
             df.drop_duplicates("id_reserva")
@@ -317,7 +281,6 @@ if pagina == "Dashboard general":
                        title="Monto total de reservas por fecha")
         st.plotly_chart(style_fig(fig1), use_container_width=True)
 
-    # Gráfico 2
     with st.expander("📊 Monto total por estado de reserva"):
         df_estado = (
             df.drop_duplicates("id_reserva")
@@ -330,7 +293,6 @@ if pagina == "Dashboard general":
         fig2.update_layout(xaxis_title="Estado", yaxis_title="Monto total")
         st.plotly_chart(style_fig(fig2), use_container_width=True)
 
-    # Gráfico 3
     with st.expander("📊 Distribución de montos de reserva"):
         df_res = df.drop_duplicates("id_reserva")
         fig3 = px.histogram(df_res, x="monto_total", nbins=10,
@@ -339,9 +301,6 @@ if pagina == "Dashboard general":
         st.plotly_chart(style_fig(fig3), use_container_width=True)
 
 
-# ============================================================
-# 2) HABITACIONES Y CLIENTES
-# ============================================================
 elif pagina == "Habitaciones y clientes":
     df = df_base.copy()
 
@@ -372,7 +331,6 @@ elif pagina == "Habitaciones y clientes":
         st.warning("No se encontraron resultados con los filtros.")
         st.stop()
 
-    # Indicadores
     c1, c2, c3, c4 = st.columns(4)
 
     hab_distintas = df["id_habitacion"].nunique()
@@ -387,7 +345,6 @@ elif pagina == "Habitaciones y clientes":
 
     st.markdown("---")
 
-    # Tabla en botoncito
     st.subheader("Reservas filtradas – detalle de habitaciones y clientes")
     with st.expander("Ver tabla de reservas filtradas (habitaciones y clientes)"):
         st.dataframe(df, use_container_width=True)
@@ -395,7 +352,6 @@ elif pagina == "Habitaciones y clientes":
     st.markdown("---")
     st.subheader("Visualizaciones")
 
-    # Gráfico 1 – Monto por tipo de habitación
     with st.expander("📊 Monto total por tipo de habitación"):
         df_tipo = (
             df.drop_duplicates("id_reserva")
@@ -408,7 +364,6 @@ elif pagina == "Habitaciones y clientes":
         fig1.update_layout(xaxis_title="Tipo de habitación", yaxis_title="Monto total")
         st.plotly_chart(style_fig(fig1), use_container_width=True)
 
-    # Gráfico 2 – Top 10 clientes por noches
     with st.expander("📊 Top 10 clientes por noches reservadas"):
         df_noches = (
             df.drop_duplicates("id_reserva")
@@ -422,7 +377,6 @@ elif pagina == "Habitaciones y clientes":
         fig2.update_layout(xaxis_title="Cliente", yaxis_title="Noches")
         st.plotly_chart(style_fig(fig2), use_container_width=True)
 
-    # Gráfico 3 – Tarifa vs personas
     with st.expander("📊 Relación tarifa noche vs cantidad de personas"):
         fig3 = px.scatter(
             df.drop_duplicates("id_detalle_reserva"),
@@ -436,9 +390,6 @@ elif pagina == "Habitaciones y clientes":
         st.plotly_chart(style_fig(fig3), use_container_width=True)
 
 
-# ============================================================
-# 3) LOCALIZACIÓN Y PAGOS
-# ============================================================
 elif pagina == "Localización y pagos":
     df = df_base.copy()
 
@@ -483,7 +434,6 @@ elif pagina == "Localización y pagos":
         st.warning("No se encontraron resultados.")
         st.stop()
 
-    # Indicadores
     c1, c2, c3, c4 = st.columns(4)
 
     reservas = df["id_reserva"].nunique()
@@ -502,7 +452,6 @@ elif pagina == "Localización y pagos":
 
     st.markdown("---")
 
-    # Tabla en botoncito
     st.subheader("Reservas y pagos filtrados")
     with st.expander("Ver tabla de reservas y pagos filtrados"):
         st.dataframe(df, use_container_width=True)
@@ -510,7 +459,6 @@ elif pagina == "Localización y pagos":
     st.markdown("---")
     st.subheader("Visualizaciones")
 
-    # Gráfico 1 – Monto por localización
     with st.expander("📊 Monto total por localización"):
         df_loc = (
             df.drop_duplicates("id_reserva")
@@ -523,7 +471,6 @@ elif pagina == "Localización y pagos":
         fig1.update_layout(xaxis_title="Localización", yaxis_title="Monto total")
         st.plotly_chart(style_fig(fig1), use_container_width=True)
 
-    # Gráfico 2 – Monto pagado por método de pago
     with st.expander("📊 Monto pagado por método de pago"):
         df_mp = (
             df.dropna(subset=["id_pago"])
@@ -537,7 +484,6 @@ elif pagina == "Localización y pagos":
         fig2.update_layout(xaxis_title="Método de pago", yaxis_title="Monto pagado")
         st.plotly_chart(style_fig(fig2), use_container_width=True)
 
-    # Gráfico 3 – Distribución de montos por estado de pago
     with st.expander("📊 Distribución de montos por estado de pago"):
         df_pe = (
             df.dropna(subset=["id_pago"])
@@ -550,9 +496,6 @@ elif pagina == "Localización y pagos":
         st.plotly_chart(style_fig(fig3), use_container_width=True)
 
 
-# ============================================================
-# 4) SERVICIOS ESPECIALES
-# ============================================================
 elif pagina == "Servicios especiales":
     df = df_base.copy()
 
@@ -590,7 +533,6 @@ elif pagina == "Servicios especiales":
         st.warning("No se encontraron resultados.")
         st.stop()
 
-    # Indicadores
     c1, c2, c3, c4 = st.columns(4)
 
     servicios_usados = df["id_servicios_especiales"].nunique()
@@ -605,7 +547,6 @@ elif pagina == "Servicios especiales":
 
     st.markdown("---")
 
-    # Tabla en botoncito
     st.subheader("Detalle de servicios especiales en reservas filtradas")
     with st.expander("Ver tabla de servicios especiales filtrados"):
         st.dataframe(df, use_container_width=True)
@@ -613,7 +554,6 @@ elif pagina == "Servicios especiales":
     st.markdown("---")
     st.subheader("Visualizaciones")
 
-    # Gráfico 1 – Monto por servicio
     with st.expander("📊 Monto total por servicio especial"):
         df_serv = (
             df.groupby("nombre_servicio_especial", as_index=False)["precio_servicio_reserva"]
@@ -625,7 +565,6 @@ elif pagina == "Servicios especiales":
         fig1.update_layout(xaxis_title="Servicio especial", yaxis_title="Monto total")
         st.plotly_chart(style_fig(fig1), use_container_width=True)
 
-    # Gráfico 2 – Servicios por localización
     with st.expander("📊 Servicios por localización"):
         df_loc = (
             df.groupby(["localizacion_reserva", "nombre_servicio_especial"], as_index=False)
@@ -643,7 +582,6 @@ elif pagina == "Servicios especiales":
         fig2.update_layout(xaxis_title="Localización", yaxis_title="Monto total")
         st.plotly_chart(style_fig(fig2), use_container_width=True)
 
-    # Gráfico 3 – Serie temporal
     with st.expander("📊 Ingresos por servicios especiales en el tiempo"):
         df_ts = (
             df.groupby("fecha_reserva", as_index=False)["precio_servicio_reserva"]
