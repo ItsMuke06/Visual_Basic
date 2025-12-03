@@ -19,25 +19,21 @@ st.markdown("""
 .stApp {
     background-color: #e8d9c4 !important;
 }
-
 .block-container {
     color: #2b1a0f !important;
 }
 h1, h2, h3, h4, h5, h6, p, span, label {
     color: #2b1a0f !important;
 }
-
 [data-testid="stSidebar"] {
     background-color: #7b4a26 !important;
 }
 [data-testid="stSidebar"] * {
     color: #ffffff !important;
 }
-
 [data-testid="stHeader"] * {
     color: #ffffff !important;
 }
-
 [data-testid="stMetric"] {
     background: linear-gradient(135deg, #5c371c, #7b4a26);
     padding: 12px;
@@ -47,7 +43,6 @@ h1, h2, h3, h4, h5, h6, p, span, label {
 [data-testid="stMetric"] * {
     color: #ffffff !important;
 }
-
 details {
     background-color: #d1b792 !important;
     border-radius: 8px;
@@ -58,7 +53,6 @@ summary {
     font-weight: 700 !important;
     color: #2b1a0f !important;
 }
-
 [data-testid="stDataFrame"] {
     color: #2b1a0f !important;
 }
@@ -70,7 +64,6 @@ px.defaults.color_discrete_sequence = WOOD_COLORS
 
 
 def style_fig(fig):
-    """Aplica fondo beige–café y letras oscuras a los gráficos."""
     fig.update_layout(
         paper_bgcolor="#c7ab85",
         plot_bgcolor="#e1c39b",
@@ -149,26 +142,18 @@ def load_data(db_uri: str):
             mp.id_metodo_pago,
             mp.nombre AS metodo_pago_nombre
         FROM reserva r
-        JOIN cliente c 
-            ON c.id_cliente = r.id_cliente
-        JOIN detalle_reserva dr 
-            ON dr.id_reserva = r.id_reserva
-        JOIN habitacion h 
-            ON h.id_habitacion = dr.id_habitacion
-        JOIN tipo_habitacion th 
-            ON th.id_tipo_habitacion = h.id_tipo_habitacion
+        JOIN cliente c ON c.id_cliente = r.id_cliente
+        JOIN detalle_reserva dr ON dr.id_reserva = r.id_reserva
+        JOIN habitacion h ON h.id_habitacion = dr.id_habitacion
+        JOIN tipo_habitacion th ON th.id_tipo_habitacion = h.id_tipo_habitacion
         LEFT JOIN detalle_reserva_servicios_especiales drs
             ON drs.id_detalle_reserva = dr.id_detalle_reserva
         LEFT JOIN servicios_especiales se
             ON se.id_servicios_especiales = drs.id_servicios_especiales
-        LEFT JOIN pago p
-            ON p.id_reserva = r.id_reserva
-        LEFT JOIN detalle_pago dp
-            ON dp.id_detalle_pago = p.id_detalle_pago
-        LEFT JOIN metodo_pago mp
-            ON mp.id_metodo_pago = dp.id_metodo_pago
-        LEFT JOIN estado_pago ep
-            ON ep.id_estado_pago = p.id_estado_pago;
+        LEFT JOIN pago p ON p.id_reserva = r.id_reserva
+        LEFT JOIN detalle_pago dp ON dp.id_detalle_pago = p.id_detalle_pago
+        LEFT JOIN metodo_pago mp ON mp.id_metodo_pago = dp.id_metodo_pago
+        LEFT JOIN estado_pago ep ON ep.id_estado_pago = p.id_estado_pago;
     """
     df_local = pd.read_sql(query, engine_local)
 
@@ -192,7 +177,7 @@ def load_data(db_uri: str):
     df_local["noches"] = (df_local["check_out"] - df_local["check_in"]).dt.days
 
     df_local["localizacion_reserva"] = df_local["localizacion_reserva"].fillna("Sin localización")
-    df_local["descripcion_tipo_habitacion"] = df_local["descripcion_tipo_habitacion"].fillna("Sin descripción")
+    df_local["tipo_cama"] = df_local["tipo_cama"].fillna("Sin tipo de cama")
     df_local["nombre_servicio_especial"] = df_local["nombre_servicio_especial"].fillna("Sin servicio")
     df_local["metodo_pago_nombre"] = df_local["metodo_pago_nombre"].fillna("Sin método")
     df_local["nombre_estado_pago"] = df_local["nombre_estado_pago"].fillna("Sin estado")
@@ -206,8 +191,9 @@ if df_base.empty:
     st.warning("No se pudo cargar información desde la base de datos.")
     st.stop()
 
-st.sidebar.title("Menú del hotel")
 
+# 📌=============== MENÚ LATERAL ===============
+st.sidebar.title("Menú del hotel")
 pagina = st.sidebar.radio(
     "Selecciona una sección",
     (
@@ -218,6 +204,8 @@ pagina = st.sidebar.radio(
     )
 )
 
+
+# ---------------- DASHBOARD GENERAL ----------------
 if pagina == "Dashboard general":
     df = df_base.copy()
 
@@ -302,16 +290,16 @@ if pagina == "Dashboard general":
         )
         fig2 = px.bar(df_estado, x="estado_reserva", y="monto_total",
                       title="Monto total por estado de reserva")
-        fig2.update_layout(xaxis_title="Estado", yaxis_title="Monto total")
         st.plotly_chart(style_fig(fig2), use_container_width=True)
 
     with st.expander("📊 Distribución de montos de reserva"):
         df_res = df.drop_duplicates("id_reserva")
         fig3 = px.histogram(df_res, x="monto_total", nbins=10,
                             title="Distribución de montos de reserva")
-        fig3.update_layout(xaxis_title="Monto total de reserva", yaxis_title="Frecuencia")
         st.plotly_chart(style_fig(fig3), use_container_width=True)
 
+
+# ---------------- HABITACIONES Y CLIENTES ----------------
 elif pagina == "Habitaciones y clientes":
     df = df_base.copy()
 
@@ -329,14 +317,15 @@ elif pagina == "Habitaciones y clientes":
     else:
         fi = ff = fecha_min
 
-    tipos_h = st.sidebar.multiselect(
-        "Tipo de habitación",
-        sorted(df["descripcion_tipo_habitacion"].unique().tolist())
+    # ⬅ CAMBIO PRINCIPAL: Filtrar por TIPO DE CAMA
+    tipos_cama = st.sidebar.multiselect(
+        "Tipo de cama",
+        sorted(df["tipo_cama"].unique().tolist())
     )
 
     df = df[df["fecha_reserva"].dt.date.between(fi, ff)]
-    if tipos_h:
-        df = df[df["descripcion_tipo_habitacion"].isin(tipos_h)]
+    if tipos_cama:
+        df = df[df["tipo_cama"].isin(tipos_cama)]
 
     if df.empty:
         st.warning("No se encontraron resultados con los filtros.")
@@ -345,12 +334,12 @@ elif pagina == "Habitaciones y clientes":
     c1, c2, c3, c4 = st.columns(4)
 
     hab_distintas = df["id_habitacion"].nunique()
-    tipos_distintos = df["id_tipo_habitacion"].nunique()
+    tipos_distintos = df["tipo_cama"].nunique()
     clientes_distintos = df["id_cliente"].nunique()
     noches_prom = df.drop_duplicates("id_reserva")["noches"].mean()
 
     c1.metric("Habitaciones distintas reservadas", hab_distintas)
-    c2.metric("Tipos de habitación utilizados", tipos_distintos)
+    c2.metric("Tipos de cama utilizados", tipos_distintos)
     c3.metric("Clientes distintos", clientes_distintos)
     c4.metric("Promedio de noches por reserva", f"{noches_prom:,.2f}")
 
@@ -363,16 +352,16 @@ elif pagina == "Habitaciones y clientes":
     st.markdown("---")
     st.subheader("Visualizaciones")
 
-    with st.expander("📊 Monto total por tipo de habitación"):
+    # ⬅ Actualizado: monto total por tipo de cama
+    with st.expander("📊 Monto total por tipo de cama"):
         df_tipo = (
             df.drop_duplicates("id_reserva")
-              .groupby("descripcion_tipo_habitacion", as_index=False)["monto_total"]
+              .groupby("tipo_cama", as_index=False)["monto_total"]
               .sum()
               .sort_values("monto_total", ascending=False)
         )
-        fig1 = px.bar(df_tipo, x="descripcion_tipo_habitacion", y="monto_total",
-                      title="Monto total por tipo de habitación")
-        fig1.update_layout(xaxis_title="Tipo de habitación", yaxis_title="Monto total")
+        fig1 = px.bar(df_tipo, x="tipo_cama", y="monto_total",
+                      title="Monto total por tipo de cama")
         st.plotly_chart(style_fig(fig1), use_container_width=True)
 
     with st.expander("📊 Top 10 clientes por noches reservadas"):
@@ -385,21 +374,22 @@ elif pagina == "Habitaciones y clientes":
         )
         fig2 = px.bar(df_noches, x="nombre_cliente", y="noches",
                       title="Top 10 clientes por noches reservadas")
-        fig2.update_layout(xaxis_title="Cliente", yaxis_title="Noches")
         st.plotly_chart(style_fig(fig2), use_container_width=True)
 
+    # ⬅ Actualizado: color por tipo de cama
     with st.expander("📊 Relación tarifa noche vs cantidad de personas"):
         fig3 = px.scatter(
             df.drop_duplicates("id_detalle_reserva"),
             x="tarifa_noche",
             y="cantidad_personas",
-            color="descripcion_tipo_habitacion",
+            color="tipo_cama",
             title="Tarifa por noche vs cantidad de personas",
             hover_data=["numero_habitacion", "nombre_cliente"]
         )
-        fig3.update_layout(xaxis_title="Tarifa por noche", yaxis_title="Cantidad de personas")
         st.plotly_chart(style_fig(fig3), use_container_width=True)
 
+
+# ---------------- LOCALIZACIÓN Y PAGOS ----------------
 elif pagina == "Localización y pagos":
     df = df_base.copy()
 
@@ -412,7 +402,7 @@ elif pagina == "Localización y pagos":
 
     rango = st.sidebar.date_input("Rango de fechas", [fecha_min, fecha_max],
                                   min_value=fecha_min, max_value=fecha_max)
-    if isinstance(rango, (list, tuple)) and len(rango) == 2:
+    if isinstance(rango, (list, tuple)) and len(rango == 2):
         fi, ff = rango
     else:
         fi = ff = fecha_min
@@ -474,11 +464,9 @@ elif pagina == "Localización y pagos":
             df.drop_duplicates("id_reserva")
               .groupby("localizacion_reserva", as_index=False)["monto_total"]
               .sum()
-              .sort_values("monto_total", ascending=False)
         )
         fig1 = px.bar(df_loc, x="localizacion_reserva", y="monto_total",
                       title="Monto total por localización")
-        fig1.update_layout(xaxis_title="Localización", yaxis_title="Monto total")
         st.plotly_chart(style_fig(fig1), use_container_width=True)
 
     with st.expander("📊 Monto pagado por método de pago"):
@@ -487,11 +475,9 @@ elif pagina == "Localización y pagos":
               .drop_duplicates("id_pago")
               .groupby("metodo_pago_nombre", as_index=False)["monto_pago"]
               .sum()
-              .sort_values("monto_pago", ascending=False)
         )
         fig2 = px.bar(df_mp, x="metodo_pago_nombre", y="monto_pago",
                       title="Monto pagado por método de pago")
-        fig2.update_layout(xaxis_title="Método de pago", yaxis_title="Monto pagado")
         st.plotly_chart(style_fig(fig2), use_container_width=True)
 
     with st.expander("📊 Distribución de montos por estado de pago"):
@@ -505,6 +491,8 @@ elif pagina == "Localización y pagos":
                       title="Distribución de montos por estado de pago")
         st.plotly_chart(style_fig(fig3), use_container_width=True)
 
+
+# ---------------- SERVICIOS ESPECIALES ----------------
 elif pagina == "Servicios especiales":
     df = df_base.copy()
 
@@ -567,11 +555,9 @@ elif pagina == "Servicios especiales":
         df_serv = (
             df.groupby("nombre_servicio_especial", as_index=False)["precio_servicio_reserva"]
               .sum()
-              .sort_values("precio_servicio_reserva", ascending=False)
         )
         fig1 = px.bar(df_serv, x="nombre_servicio_especial", y="precio_servicio_reserva",
                       title="Monto total por servicio especial")
-        fig1.update_layout(xaxis_title="Servicio especial", yaxis_title="Monto total")
         st.plotly_chart(style_fig(fig1), use_container_width=True)
 
     with st.expander("📊 Servicios por localización"):
@@ -588,7 +574,6 @@ elif pagina == "Servicios especiales":
             barmode="stack",
             title="Monto por servicios especiales según localización"
         )
-        fig2.update_layout(xaxis_title="Localización", yaxis_title="Monto total")
         st.plotly_chart(style_fig(fig2), use_container_width=True)
         
     with st.expander("📊 Ingresos por servicios especiales en el tiempo"):
@@ -599,7 +584,6 @@ elif pagina == "Servicios especiales":
         )
         fig3 = px.line(df_ts, x="fecha_reserva", y="precio_servicio_reserva",
                        title="Ingresos por servicios especiales en el tiempo")
-        fig3.update_layout(xaxis_title="Fecha", yaxis_title="Monto servicios")
         st.plotly_chart(style_fig(fig3), use_container_width=True)
 
 st.caption("UNIVALLE – Bases de Datos I – Proyecto Hotel con menú")
