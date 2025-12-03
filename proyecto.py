@@ -13,10 +13,12 @@ st.set_page_config(page_title="Hotel – Dashboard con menú", layout="wide")
 # ------------------------------------------------------------
 st.markdown("""
 <style>
+/* Fondo general beige café */
 .stApp {
     background-color: #e8d9c4 !important;
 }
 
+/* Contenido principal: texto oscuro */
 .block-container {
     color: #2b1a0f !important;
 }
@@ -24,6 +26,7 @@ h1, h2, h3, h4, h5, h6, p, span, label {
     color: #2b1a0f !important;
 }
 
+/* Sidebar café con letras blancas */
 [data-testid="stSidebar"] {
     background-color: #7b4a26 !important;
 }
@@ -31,10 +34,12 @@ h1, h2, h3, h4, h5, h6, p, span, label {
     color: #ffffff !important;
 }
 
+/* Barra superior (deploy / rerun) con letras blancas */
 [data-testid="stHeader"] * {
     color: #ffffff !important;
 }
 
+/* Métricas – tarjetas café, todo en blanco */
 [data-testid="stMetric"] {
     background: linear-gradient(135deg, #5c371c, #7b4a26);
     padding: 12px;
@@ -45,6 +50,7 @@ h1, h2, h3, h4, h5, h6, p, span, label {
     color: #ffffff !important;
 }
 
+/* Expanders – “botoncitos” */
 details {
     background-color: #d1b792 !important;
     border-radius: 8px;
@@ -291,9 +297,10 @@ if pagina == "Dashboard general":
 
     st.markdown("---")
 
-    # Tabla
+    # Tabla en botoncito
     st.subheader("Tabla de reservas filtradas")
-    st.dataframe(df, use_container_width=True)
+    with st.expander("Ver tabla de reservas filtradas"):
+        st.dataframe(df, use_container_width=True)
 
     st.markdown("---")
     st.subheader("Visualizaciones")
@@ -380,9 +387,10 @@ elif pagina == "Habitaciones y clientes":
 
     st.markdown("---")
 
-    # Tabla
+    # Tabla en botoncito
     st.subheader("Reservas filtradas – detalle de habitaciones y clientes")
-    st.dataframe(df, use_container_width=True)
+    with st.expander("Ver tabla de reservas filtradas (habitaciones y clientes)"):
+        st.dataframe(df, use_container_width=True)
 
     st.markdown("---")
     st.subheader("Visualizaciones")
@@ -494,9 +502,10 @@ elif pagina == "Localización y pagos":
 
     st.markdown("---")
 
-    # Tabla
+    # Tabla en botoncito
     st.subheader("Reservas y pagos filtrados")
-    st.dataframe(df, use_container_width=True)
+    with st.expander("Ver tabla de reservas y pagos filtrados"):
+        st.dataframe(df, use_container_width=True)
 
     st.markdown("---")
     st.subheader("Visualizaciones")
@@ -596,9 +605,10 @@ elif pagina == "Servicios especiales":
 
     st.markdown("---")
 
-    # Tabla
+    # Tabla en botoncito
     st.subheader("Detalle de servicios especiales en reservas filtradas")
-    st.dataframe(df, use_container_width=True)
+    with st.expander("Ver tabla de servicios especiales filtrados"):
+        st.dataframe(df, use_container_width=True)
 
     st.markdown("---")
     st.subheader("Visualizaciones")
