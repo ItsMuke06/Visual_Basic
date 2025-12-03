@@ -2,6 +2,15 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from sqlalchemy import create_engine, text
+import pymysql
+
+connection = pymysql.connect(
+    host="sql5.freesqldatabase.com",
+    user="sql5809892",
+    password="6qamRICnU7",
+    database="sql5809892",
+    port=3306
+)
 
 st.set_page_config(page_title="Hotel – Dashboard con menú", layout="wide")
 
