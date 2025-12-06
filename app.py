@@ -6,11 +6,81 @@ from sqlalchemy import create_engine, text
 import plotly.express as px
 from datetime import datetime
 
+# ----------------------------------------------
+# CONFIGURACIÓN DE ESTILO (AZUL MARINO)
+# ----------------------------------------------
 st.set_page_config(page_title="Dashboard Club Fitness", layout="wide")
 
-# -------------------------
-# Configuración de conexión
-# -------------------------
+# CSS para personalizar colores
+st.markdown("""
+    <style>
+
+        /* Fondo general negro */
+        body, .main, .stApp {
+            background-color: #000000 !important;
+        }
+
+        /* Letras blancas en toda la aplicación */
+        h1, h2, h3, h4, h5, h6, p, span, div, label {
+            color: #FFFFFF !important;
+        }
+
+        /* Sidebar texto blanco */
+        .css-1d391kg, .css-1y4p8pa, .css-1lcbmhc, .css-qrbaxs {
+            color: #FFFFFF !important;
+        }
+
+        /* KPIs blancos con borde azul */
+        .stMetric {
+            background-color: #111111 !important;
+            color: #FFFFFF !important;
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid #185ADB !important;
+        }
+
+        /* Expanders — fondo oscuro y borde azul marino */
+        .stExpander {
+            background-color: #111111 !important;
+            border: 2px solid #185ADB !important;
+            border-radius: 12px !important;
+            color: #FFFFFF !important;
+        }
+
+        /* Encabezado de expander en blanco */
+        summary {
+            color: #FFFFFF !important;
+        }
+
+        /* Tablas en azul marino */
+        .stDataFrame, .stTable {
+            background-color: #0A2342 !important;
+            color: #FFFFFF !important;
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        /* Scrollbars oscuras */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #000000;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #185ADB;
+            border-radius: 5px;
+        }
+
+    </style>
+""", unsafe_allow_html=True)
+
+# Paleta para Plotly
+COLOR_MARINO = ["#0A2342", "#185ADB", "#39A9DB", "#A2D6F9"]
+
+# ----------------------------------------------
+# CONEXIÓN A BASE DE DATOS
+# ----------------------------------------------
 DB_CONFIG = {
     "user": "sql10810884",
     "password": "9ZKaWJmkeq",
@@ -19,15 +89,14 @@ DB_CONFIG = {
     "database": "sql10810884",
 }
 
-# Crear engine SQLAlchemy (requiere pymysql)
 @st.cache_resource
 def get_engine():
-    conn_str = f"mysql+pymysql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
-    engine = create_engine(conn_str)
-    return engine
+    conn_str = (
+        f"mysql+pymysql://{DB_CONFIG['user']}:{DB_CONFIG['password']}"
+        f"@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
+    )
+    return create_engine(conn_str)
 
-# Query principal: unimos asistencia -> socio -> socio_clases -> clases -> instructor
-# Observación: la tabla 'asistencia' no tiene id_clase en tu SQL, por eso usamos socios_clases para relacionar.
 MAIN_QUERY = """
 SELECT 
     a.id_asistencia,
@@ -54,117 +123,129 @@ def load_data():
     engine = get_engine()
     with engine.connect() as conn:
         df = pd.read_sql(text(MAIN_QUERY), conn)
-    # Asegurar tipos
-    if 'fecha_inicio' in df.columns:
-        df['fecha_inicio'] = pd.to_datetime(df['fecha_inicio']).dt.date
-    if 'hora_inicio' in df.columns:
-        df['hora_inicio'] = pd.to_datetime(df['hora_inicio'])
+    df['fecha_inicio'] = pd.to_datetime(df['fecha_inicio']).dt.date
     return df
 
-# -------------------------
-# UI: Sidebar - filtros
-# -------------------------
-st.title("Dashboard - Club Fitness")
-st.markdown("Visualización de asistencias — Streamlit app (PARTE 5)")
 
+# ----------------------------------------------
+# TÍTULO PRINCIPAL
+# ----------------------------------------------
+st.title("📊 Dashboard de Asistencias – Club Fitness")
+
+
+# ----------------------------------------------
+# Cargar Datos
+# ----------------------------------------------
 df = load_data()
 
-# Si el join no devolvió clases/instructores, avisamos
 if df.empty:
-    st.warning("La consulta no devolvió registros. Verifica conexión y que la BD contiene datos.")
+    st.error("❌ No se encontraron datos en la base.")
+    st.stop()
+
+# ----------------------------------------------
+# SIDEBAR - FILTROS
+# ----------------------------------------------
+st.sidebar.header("🔎 Filtros")
+
+min_date, max_date = df['fecha_inicio'].min(), df['fecha_inicio'].max()
+date_range = st.sidebar.date_input("Rango de fechas", (min_date, max_date))
+
+if isinstance(date_range, tuple):
+    start_date, end_date = date_range
 else:
-    # Sidebar filtros
-    st.sidebar.header("Filtros")
-    min_date = df['fecha_inicio'].min()
-    max_date = df['fecha_inicio'].max()
-    date_range = st.sidebar.date_input(
-        "Rango de fechas",
-        value=(min_date, max_date),
-        min_value=min_date,
-        max_value=max_date
-    )
-    # Manejar caso un solo date_input devuelve un date en vez de tupla
-    if isinstance(date_range, tuple) and len(date_range) == 2:
-        start_date, end_date = date_range
-    else:
-        start_date, end_date = date_range, date_range
+    start_date = end_date = date_range
 
-    clases = df['clase'].dropna().unique().tolist()
-    instrs = df['instructor'].dropna().unique().tolist()
+selected_clases = st.sidebar.multiselect("Clase", df['clase'].dropna().unique())
+selected_instr = st.sidebar.multiselect("Instructor", df['instructor'].dropna().unique())
 
-    selected_clases = st.sidebar.multiselect("Clase", options=sorted(clases), default=sorted(clases))
-    selected_instr = st.sidebar.multiselect("Instructor", options=sorted(instrs), default=sorted(instrs))
+# Aplicación de filtros
+filt = pd.Series(True, index=df.index)
+filt &= df['fecha_inicio'] >= start_date
+filt &= df['fecha_inicio'] <= end_date
 
-    # Aplicar filtros
-    filt = pd.Series(True, index=df.index)
-    if start_date:
-        filt &= df['fecha_inicio'] >= pd.to_datetime(start_date).date()
-    if end_date:
-        filt &= df['fecha_inicio'] <= pd.to_datetime(end_date).date()
-    if selected_clases:
-        filt &= df['clase'].isin(selected_clases)
-    if selected_instr:
-        filt &= df['instructor'].isin(selected_instr)
+if selected_clases:
+    filt &= df['clase'].isin(selected_clases)
+if selected_instr:
+    filt &= df['instructor'].isin(selected_instr)
 
-    df_filtered = df[filt].copy()
+df_filtered = df[filt]
 
-    # -------------------------
-    # KPIs
-    # -------------------------
-    st.subheader("Indicadores (KPIs)")
+
+# ----------------------------------------------
+# KPIs (en expander)
+# ----------------------------------------------
+with st.expander("📌 Indicadores / KPIs (clic para abrir)", expanded=True):
     col1, col2, col3 = st.columns(3)
-    total_asistencias = len(df_filtered)
-    distinct_socios = df_filtered['id_socios'].nunique()
-    # Clase con más asistencias (cuando clase sea NaN lo ignoramos)
-    clase_mas_asist = df_filtered.groupby('clase').size().sort_values(ascending=False)
-    clase_top = clase_mas_asist.index[0] if not clase_mas_asist.empty else "N/A"
-    col1.metric("Total asistencias registradas", total_asistencias)
-    col2.metric("Socios distintos (filtrados)", distinct_socios)
-    col3.metric("Clase con mayor asistencias", clase_top)
 
-    st.markdown("---")
+    col1.metric("Total de Asistencias", len(df_filtered))
+    col2.metric("Socios Distintos", df_filtered['id_socios'].nunique())
 
-    # -------------------------
-    # Tabla de datos
-    # -------------------------
-    st.subheader("Tabla de datos (origen)")
-    st.dataframe(df_filtered.reset_index(drop=True), use_container_width=True)
+    clase_top = (
+        df_filtered['clase'].value_counts().idxmax()
+        if df_filtered['clase'].notna().any()
+        else "N/A"
+    )
+    col3.metric("Clase con Más Asistencias", clase_top)
 
-    # Botón para descargar CSV de los datos filtrados
-    csv = df_filtered.to_csv(index=False).encode('utf-8')
-    st.download_button("Descargar datos filtrados (CSV)", data=csv, file_name="asistencias_filtradas.csv", mime="text/csv")
 
-    # -------------------------
-    # Gráficos
-    # -------------------------
-    st.subheader("Gráficos")
+# ----------------------------------------------
+# TABLA DE DATOS
+# ----------------------------------------------
+with st.expander("📄 Tabla de Datos (clic para mostrar/ocultar)", expanded=False):
+    st.dataframe(df_filtered, use_container_width=True)
 
-    # 1) Gráfico de barras: número de asistencias por clase
-    st.markdown("**Asistencias por Clase (barras)**")
-    bar_df = df_filtered.dropna(subset=['clase']).groupby('clase').size().reset_index(name='asistencias')
+
+# ----------------------------------------------
+# GRÁFICOS
+# ----------------------------------------------
+st.subheader("📈 Visualizaciones")
+
+# ----------- 1. BARRAS -----------
+bar_df = df_filtered.groupby('clase').size().reset_index(name="asistencias")
+
+with st.expander("📊 Asistencias por Clase (Barras)"):
     if bar_df.empty:
-        st.info("No hay datos de clase para mostrar en el gráfico de barras.")
+        st.info("No hay datos suficientes.")
     else:
-        fig_bar = px.bar(bar_df, x='clase', y='asistencias', title="Asistencias por clase", labels={'clase':'Clase','asistencias':'Asistencias'})
-        st.plotly_chart(fig_bar, use_container_width=True)
+        fig = px.bar(
+            bar_df,
+            x="clase",
+            y="asistencias",
+            title="Asistencias por Clase",
+            color="clase",
+            color_discrete_sequence=COLOR_MARINO,
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
-    # 2) Pie: número de asistencias por instructor
-    st.markdown("**Asistencias por Instructor (pie)**")
-    pie_df = df_filtered.dropna(subset=['instructor']).groupby('instructor').size().reset_index(name='asistencias')
+# ----------- 2. PIE CHART -----------
+pie_df = df_filtered.groupby('instructor').size().reset_index(name="asistencias")
+
+with st.expander("🧩 Asistencias por Instructor (Pie Chart)"):
     if pie_df.empty:
-        st.info("No hay datos de instructor para mostrar en pie chart.")
+        st.info("No hay datos suficientes.")
     else:
-        fig_pie = px.pie(pie_df, values='asistencias', names='instructor', title="Asistencias por instructor")
-        st.plotly_chart(fig_pie, use_container_width=True)
+        fig = px.pie(
+            pie_df,
+            values="asistencias",
+            names="instructor",
+            title="Asistencias por Instructor",
+            color_discrete_sequence=COLOR_MARINO,
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
-    # 3) Línea: número de asistencias por fecha
-    st.markdown("**Asistencias por Fecha (línea)**")
-    line_df = df_filtered.groupby('fecha_inicio').size().reset_index(name='asistencias').sort_values('fecha_inicio')
+# ----------- 3. LÍNEA -----------
+line_df = df_filtered.groupby("fecha_inicio").size().reset_index(name="asistencias")
+
+with st.expander("📈 Asistencias por Fecha (Línea)"):
     if line_df.empty:
-        st.info("No hay datos por fecha para mostrar.")
+        st.info("No hay datos suficientes.")
     else:
-        fig_line = px.line(line_df, x='fecha_inicio', y='asistencias', markers=True, title="Asistencias por fecha", labels={'fecha_inicio':'Fecha','asistencias':'Asistencias'})
-        st.plotly_chart(fig_line, use_container_width=True)
-
-    st.markdown("---")
-    st.caption("Query usada para obtener datos: unión entre asistencia → socio → socios_clases → clases → instructor. Si la relación 'asistencia → clase' está explícita en tu esquema, modifica la query MAIN_QUERY en app.py accordingly.")
+        fig = px.line(
+            line_df,
+            x="fecha_inicio",
+            y="asistencias",
+            markers=True,
+            title="Asistencias por Fecha",
+            color_discrete_sequence=["#185ADB"],
+        )
+        st.plotly_chart(fig, use_container_width=True)
